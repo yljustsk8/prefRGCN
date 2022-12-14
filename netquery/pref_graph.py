@@ -794,16 +794,18 @@ class PrefFormula():
             vec_p_pos = [torch.LongTensor([0, 0, 1, 0])]
             vec_n_pos = [torch.LongTensor([0, 0, 0, 1])]
 
+        elif self.pref_type == "UIUP-1-reverse":
+            rel_pos = [torch.LongTensor([0, 1, 1, 1])]
+            vec_e_pos = torch.LongTensor([1, 1, 0, 0])
+            vec_p_pos = [torch.LongTensor([0, 0, 0, 1])]
+            vec_n_pos = [torch.LongTensor([0, 0, 1, 0])]
+
         elif self.pref_type == "UIUP-2":
             # (0, root), (1, rel1), (2, rel2), (3, val1-Pos), (4, val1-Neg), (5, val2-Pos), (6, val2-Neg)
             rel_pos = [
                 torch.LongTensor([0, 1, 0, 1, 1, 0, 0]),
                 torch.LongTensor([0, 0, 1, 0, 0, 1, 1]),
             ]
-            # vec_e_pos = [
-            #     torch.LongTensor([1, 1, 1, 0, 0, 1, 1]),
-            #     torch.LongTensor([1, 1, 1, 1, 1, 0, 0])
-            # ]
             vec_e_pos = torch.LongTensor([1, 1, 1, 0, 0, 0, 0])
             vec_p_pos = [
                 torch.LongTensor([0, 0, 0, 1, 0, 0, 0]),
@@ -813,6 +815,21 @@ class PrefFormula():
                 torch.LongTensor([0, 0, 0, 0, 1, 0, 0]),
                 torch.LongTensor([0, 0, 0, 0, 0, 0, 1])
             ]
+        elif self.pref_type == "UIUP-2-reverse":
+            rel_pos = [
+                torch.LongTensor([0, 1, 0, 1, 1, 0, 0]),
+                torch.LongTensor([0, 0, 1, 0, 0, 1, 1]),
+            ]
+            vec_e_pos = torch.LongTensor([1, 1, 1, 0, 0, 0, 0])
+            vec_p_pos = [
+                torch.LongTensor([0, 0, 0, 0, 1, 0, 0]),
+                torch.LongTensor([0, 0, 0, 0, 0, 1, 0])
+            ]
+            vec_n_pos = [
+                torch.LongTensor([0, 0, 0, 1, 0, 0, 0]),
+                torch.LongTensor([0, 0, 0, 0, 0, 0, 1])
+            ]
+
         elif self.pref_type == "UIUP-3":
             # (0, root), (1, rel1), (2, rel2), (3, rel3), (4, val1-Pos), (5, val1-Neg),
             # (6, val2-Pos), (7, val2-Neg), (8, val3-Pos), (9, val3-Neg)
@@ -837,6 +854,26 @@ class PrefFormula():
                 torch.LongTensor([0, 0, 0, 0, 0, 0, 0, 1, 0, 0]),
                 torch.LongTensor([0, 0, 0, 0, 0, 0, 0, 0, 0, 1]),
             ]
+        elif self.pref_type == "UIUP-3-reverse":
+            # (0, root), (1, rel1), (2, rel2), (3, rel3), (4, val1-Pos), (5, val1-Neg),
+            # (6, val2-Pos), (7, val2-Neg), (8, val3-Pos), (9, val3-Neg)
+            rel_pos = [
+                torch.LongTensor([0, 1, 0, 0, 1, 1, 0, 0, 0, 0]),
+                torch.LongTensor([0, 0, 1, 0, 0, 0, 1, 1, 0, 0]),
+                torch.LongTensor([0, 0, 0, 1, 0, 0, 0, 0, 1, 1]),
+            ]
+            vec_e_pos = torch.LongTensor([1, 1, 1, 1, 0, 0, 0, 0, 0, 0])
+            vec_p_pos = [
+                torch.LongTensor([0, 0, 0, 0, 0, 1, 0, 0, 0, 0]),
+                torch.LongTensor([0, 0, 0, 0, 0, 0, 1, 0, 0, 0]),
+                torch.LongTensor([0, 0, 0, 0, 0, 0, 0, 0, 1, 0]),
+            ]
+            vec_n_pos = [
+                torch.LongTensor([0, 0, 0, 0, 1, 0, 0, 0, 0, 0]),
+                torch.LongTensor([0, 0, 0, 0, 0, 0, 0, 1, 0, 0]),
+                torch.LongTensor([0, 0, 0, 0, 0, 0, 0, 0, 0, 1]),
+            ]
+
         elif self.pref_type == "UICP-2":
             # (0, root), (1, rel1), (2, rel2), (3, rel2), (4, val1-Pos), (5, val1-Neg),
             # (6, val2-Pos), (7, val2-Neg), (8, val2-Neg), (9, val2-Pos)
@@ -956,14 +993,14 @@ class PrefFormula():
         edges: (head, type, tail)
         '''
 
-        if self.pref_type == "UIUP-1":
+        if self.pref_type == "UIUP-1" or self.pref_type == "UIUP-1-reverse":
             edge_idx = [
                 [0, 1, 0, 0],
                 [0, 0, 2, 2],
                 [0, 0, 0, 4],
                 [0, 0, 0, 0],
             ]
-        elif self.pref_type == "UIUP-2":
+        elif self.pref_type == "UIUP-2" or self.pref_type == "UIUP-2-reverse":
             edge_idx = [
                 [0, 1, 1, 0, 0, 0, 0],
                 [0, 0, 3, 2, 2, 0, 0],
@@ -973,7 +1010,7 @@ class PrefFormula():
                 [0, 0, 0, 0, 0, 0, 4],
                 [0, 0, 0, 0, 0, 0, 0],
             ]
-        elif self.pref_type == "UIUP-3":
+        elif self.pref_type == "UIUP-3" or self.pref_type == "UIUP-3-reverse":
             edge_idx = [
                 [0, 1, 1, 1, 0, 0, 0, 0, 0, 0],
                 [0, 0, 3, 0, 2, 2, 0, 0, 0, 0],
@@ -1531,7 +1568,7 @@ class Graph():
 
         return
 
-    def sample_singlev_preferences(self, entity_type, pref_type, num_pref_atts, num_samples,
+    def sample_singlev_preferences(self, entity_type, pref_type, num_pref_atts, num_samples, question_sample_max,
                                    test_flag=False, train_graph=None, verbose=True):
         print("Sampling", pref_type)
         sampled = 0

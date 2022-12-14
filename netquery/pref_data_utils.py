@@ -90,8 +90,8 @@ def sample_prefs(samples, data_dir):
         current_data = test_graph.sample_singlev_preferences(
             entity_type=entity_type,
             pref_type=pref_type,
-            num_samples=samples,
-            num_pref_atts=num_pref_atts//10,
+            num_samples=samples//10,
+            num_pref_atts=num_pref_atts,
             question_sample_max=10,
             verbose=True
         )
