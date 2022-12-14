@@ -1531,7 +1531,7 @@ class Graph():
 
         return
 
-    def sample_singlev_preferences(self, entity_type, pref_type, num_pref_atts, num_samples, question_sample_max,
+    def sample_singlev_preferences(self, entity_type, pref_type, num_pref_atts, num_samples,
                                    test_flag=False, train_graph=None, verbose=True):
         print("Sampling", pref_type)
         sampled = 0
@@ -1548,66 +1548,160 @@ class Graph():
                 continue
             sampled_atts = random.sample(candidate_atts, num_pref_atts)
             sampled_vals = [random.choice(list(self.adj_lists[att][starting_node])) for att in sampled_atts]
-            preference = SingleValPreference(pref_type, sampled_atts, sampled_vals)
-            # print("preference:", preference)
-            # sample questions
-            sampled_questions = []
-            candidate_entities = [self.adj_lists[_reverse_relation(sampled_atts[i])][sampled_vals[i]] for i in range(num_pref_atts)]
-            candidate_for_question_2 = set()
-            candidate_for_question_1 = set()
-            candidate_for_question = set()
-            if len(candidate_entities) >= 3:
-                candidate_for_question_2.update(candidate_entities[0].intersection(candidate_entities[1]))
-                candidate_for_question_2.update(candidate_entities[1].intersection(candidate_entities[2]))
-                candidate_for_question_2.update(candidate_entities[2].intersection(candidate_entities[0]))
-                candidate_for_question.update(candidate_entities[0], candidate_entities[1], candidate_entities[2])
-                candidate_for_question_1 = candidate_for_question - candidate_for_question_2
-                if len(candidate_for_question_2) < math.sqrt(question_sample_max):
+
+            '''
+                        抽样 对每个可能值 抽10个候选元素
+                        UIUP-1 2:   T > F
+                        UIUP-1-reverse 2:   F > T
+                        UIUP-2 4:   TT > TF > FT > FF
+                        UIUP-2-reverse 4:   FT > FF > TT > TF
+                        UIUP-3 8:   TTT > TTF > TFT > TFF > FTT > FTF > FFT > FFF
+                        UIUP-3-reverse 8:   FTT > FTF > FFT > FFF > TTT > TTF > TFT > TFF
+                        UICP-2 4:   TT > TF > FF > FT
+                        CIUP-3a 4:  TTT = TTF > TFT = TFF > FTT = FFT > FTF = FFF
+                        CIUP-3b 8:  TTT > TTF > TFT > TFF > FTT > FFT > FTF > FFF
+                        CICP-3 8:   TTT > TTF > TFT > TFF > FFF > FTF > FFT > FTT
+                        '''
+            pos_entities = [set(self.adj_lists[_reverse_relation(sampled_atts[i])][sampled_vals[i]]) for i in
+                            range(num_pref_atts)]
+            sampled_entities = []
+            p = set()
+            for i in pos_entities:
+                p.update(i)
+            neg_entities = set(self.full_lists[starting_type]) - p
+            if num_pref_atts == 3:
+                ttt = list(pos_entities[0].intersection(pos_entities[1]).intersection(pos_entities[2]))
+                ttf = list(pos_entities[0].intersection(pos_entities[1]) - pos_entities[2])
+                tft = list(pos_entities[0].intersection(pos_entities[2]) - pos_entities[1])
+                tff = list(pos_entities[0] - pos_entities[1] - pos_entities[2])
+                ftt = list(pos_entities[1].intersection(pos_entities[2]) - pos_entities[0])
+                ftf = list(pos_entities[1] - pos_entities[0] - pos_entities[2])
+                fft = list(pos_entities[2] - pos_entities[0] - pos_entities[1])
+                fff = list(neg_entities)
+
+                if min(len(ttt), len(ttf), len(tft), len(tff), len(ftt), len(ftf), len(fft), len(fff)) == 0:
                     continue
-            elif len(candidate_entities) == 2:
-                candidate_for_question_2 = candidate_entities[0].intersection(candidate_entities[1])
-                candidate_for_question.update(candidate_entities[0], candidate_entities[1])
-                candidate_for_question_1 = candidate_for_question - candidate_for_question_2
-                if len(candidate_for_question_2) < math.sqrt(question_sample_max):
+
+                ttt = random.sample(ttt, min(len(ttt), 10))
+                ttf = random.sample(ttf, min(len(ttf), 10))
+                tft = random.sample(tft, min(len(tft), 10))
+                tff = random.sample(tff, min(len(tff), 10))
+                ftt = random.sample(ftt, min(len(ftt), 10))
+                ftf = random.sample(ftf, min(len(ftf), 10))
+                fft = random.sample(fft, min(len(fft), 10))
+                fff = random.sample(fff, min(len(fff), 10))
+
+                if pref_type == "CIUP-3a":
+                    sampled_entities = [fff + ftf, ftt + fft, tff + tft, ttf + ttt]
+                elif pref_type == "CIUP-3b":
+                    sampled_entities = [fff, ftf, fft, ftt, tff, tft, ttf, ttt]
+                elif pref_type == "CICP-3":
+                    sampled_entities = [ftt, fft, ftf, fff, tff, tft, ttf, ttt]
+                elif pref_type == "UIUP-3":
+                    sampled_entities = [fff, fft, ftf, ftt, tff, tft, ttf, ttt]
+                elif pref_type == "UIUP-3-reverse":
+                    sampled_entities = [tff, tft, ttf, ttt, fff, fft, ftf, ftt]
+
+            elif num_pref_atts == 2:
+                tt = list(pos_entities[0].intersection(pos_entities[1]))
+                tf = list(pos_entities[0] - pos_entities[1])
+                ft = list(pos_entities[1] - pos_entities[0])
+                ff = list(neg_entities)
+
+                if min(len(tt), len(tf), len(ft), len(ff)) == 0:
                     continue
+
+                tt = random.sample(tt, min(len(tt), 10))
+                tf = random.sample(tf, min(len(tf), 10))
+                ft = random.sample(ft, min(len(ft), 10))
+                ff = random.sample(ff, min(len(ff), 10))
+                if pref_type == "UICP-2":
+                    sampled_entities = [ft, ff, tf, tt]
+                elif pref_type == "UIUP-2":
+                    sampled_entities = [ff, ft, tf, tt]
+                elif pref_type == "UIUP-2-reverse":
+                    sampled_entities = [tf, tt, ff, ft]
+
             else:
-                candidate_for_question = self.full_lists[starting_type]
-                if len(candidate_for_question) < math.sqrt(question_sample_max):
+                # len = 1
+                t = list(pos_entities[0])
+                f = list(neg_entities)
+                t = random.sample(t, min(len(t), 10))
+                f = random.sample(f, min(len(f), 10))
+                if pref_type == "UIUP-1":
+                    sampled_entities = [t, f]
+                elif pref_type == "UIUP-1-reverse":
+                    sampled_entities = [f, t]
+
+            for se in sampled_entities:
+                if len(se) == 0:
                     continue
-            while len(sampled_questions) < question_sample_max:
-                question = random.sample(candidate_for_question, 2)
-                if len(candidate_entities) == 1:
-                    if len(sampled_questions) < question_sample_max * 7 / 8:
-                        if question[0] not in candidate_entities[0] and question[1] not in candidate_entities[0]:
-                            continue
-                else:
-                    # cq2 on
-                    if question[0] in candidate_for_question_1 and question[1] in candidate_for_question_1:
-                        continue
-                e1_info = [question[0] in self.adj_lists[_reverse_relation(sampled_atts[i])][sampled_vals[i]] for i in
-                           range(num_pref_atts)]
-                e2_info = [question[1] in self.adj_lists[_reverse_relation(sampled_atts[i])][sampled_vals[i]] for i in
-                           range(num_pref_atts)]
-                answer, basis = preference.judge_pair_priority(e1_info, e2_info)
-                '''
-                TODO: 是否需要严格按照其移除？
-                if test_flag:
-                    # at least one missing edge as basis.
-                    missing_edge_count = 0
-                    for att in basis:
-                        idx = sampled_atts.index(att)
-                        if e1_info[idx] and not train_graph._verify_edge(question[0], sampled_atts[idx], sampled_vals[idx]):
-                            missing_edge_count += 1
-                    if missing_edge_count == 0 or missing_edge_count > 2:
-                        continue
-                '''
-                # print("question:", question, "e1_info:", e1_info, "e2_info:", e2_info, "answer:", answer, "basis:", basis)
-                sampled_questions.append((question, answer))
-            preference.update_questions(sampled_questions)
+            preference = SingleValPreference(pref_type, sampled_atts, sampled_vals, sampled_entities=sampled_entities)
             sampled_preferences.append(preference)
             sampled += 1
             if sampled % 1000 == 0 and verbose:
                 print("Sampled:", sampled)
+
+
+            # print("preference:", preference)
+            # sample questions
+            # sampled_questions = []
+            # candidate_entities = [self.adj_lists[_reverse_relation(sampled_atts[i])][sampled_vals[i]] for i in range(num_pref_atts)]
+            # candidate_for_question_2 = set()
+            # candidate_for_question_1 = set()
+            # candidate_for_question = set()
+            # if len(candidate_entities) >= 3:
+            #     candidate_for_question_2.update(candidate_entities[0].intersection(candidate_entities[1]))
+            #     candidate_for_question_2.update(candidate_entities[1].intersection(candidate_entities[2]))
+            #     candidate_for_question_2.update(candidate_entities[2].intersection(candidate_entities[0]))
+            #     candidate_for_question.update(candidate_entities[0], candidate_entities[1], candidate_entities[2])
+            #     candidate_for_question_1 = candidate_for_question - candidate_for_question_2
+            #     if len(candidate_for_question_2) < math.sqrt(question_sample_max):
+            #         continue
+            # elif len(candidate_entities) == 2:
+            #     candidate_for_question_2 = candidate_entities[0].intersection(candidate_entities[1])
+            #     candidate_for_question.update(candidate_entities[0], candidate_entities[1])
+            #     candidate_for_question_1 = candidate_for_question - candidate_for_question_2
+            #     if len(candidate_for_question_2) < math.sqrt(question_sample_max):
+            #         continue
+            # else:
+            #     candidate_for_question = self.full_lists[starting_type]
+            #     if len(candidate_for_question) < math.sqrt(question_sample_max):
+            #         continue
+            # while len(sampled_questions) < question_sample_max:
+            #     question = random.sample(candidate_for_question, 2)
+            #     if len(candidate_entities) == 1:
+            #         if len(sampled_questions) < question_sample_max * 7 / 8:
+            #             if question[0] not in candidate_entities[0] and question[1] not in candidate_entities[0]:
+            #                 continue
+            #     else:
+            #         # cq2 on
+            #         if question[0] in candidate_for_question_1 and question[1] in candidate_for_question_1:
+            #             continue
+            #     e1_info = [question[0] in self.adj_lists[_reverse_relation(sampled_atts[i])][sampled_vals[i]] for i in
+            #                range(num_pref_atts)]
+            #     e2_info = [question[1] in self.adj_lists[_reverse_relation(sampled_atts[i])][sampled_vals[i]] for i in
+            #                range(num_pref_atts)]
+            #     answer, basis = preference.judge_pair_priority(e1_info, e2_info)
+            #     '''
+            #     TODO: 是否需要严格按照其移除？
+            #     if test_flag:
+            #         # at least one missing edge as basis.
+            #         missing_edge_count = 0
+            #         for att in basis:
+            #             idx = sampled_atts.index(att)
+            #             if e1_info[idx] and not train_graph._verify_edge(question[0], sampled_atts[idx], sampled_vals[idx]):
+            #                 missing_edge_count += 1
+            #         if missing_edge_count == 0 or missing_edge_count > 2:
+            #             continue
+            #     '''
+            #     # print("question:", question, "e1_info:", e1_info, "e2_info:", e2_info, "answer:", answer, "basis:", basis)
+            #     sampled_questions.append((question, answer))
+            # preference.update_questions(sampled_questions)
+            # sampled_preferences.append(preference)
+            # sampled += 1
+            # if sampled % 1000 == 0 and verbose:
+            #     print("Sampled:", sampled)
         print("in pref_graph sampled preferences:", len(sampled_preferences))
         return sampled_preferences
 
