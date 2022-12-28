@@ -27,7 +27,7 @@ def load_args():
     parser.add_argument("--data_dir", type=str, default="./bio_data/")
     parser.add_argument("--lr", type=float, default=0.0001)
     parser.add_argument("--depth", type=int, default=0)
-    parser.add_argument("--batch_size", type=int, default=16)
+    parser.add_argument("--batch_size", type=int, default=2)
     parser.add_argument("--max_iter", type=int, default=100000000)
     parser.add_argument("--max_burn_in", type=int, default=1000000)
     parser.add_argument("--val_every", type=int, default=5000)
@@ -71,19 +71,24 @@ def run_eval(args, model, prefs, iteration, logger, batch_size=128, seed=36):
                     current_prefs = batch_prefs + [b for i, b in enumerate(batch_prefs) for _ in range(lengths[i])]
                     edge_idx, edge_type = dense_to_sparse(torch.Tensor([formula.edge_index for _ in range(len(current_prefs))]))
                     batch = []
+                    mask = []
                     for j in range(len(current_prefs)):
                         batch += [j for _ in range(len(formula.edge_index))]
+                        mask += [1] + [0 for _ in range(len(formula.edge_index)-1)]
                     batch = torch.LongTensor(batch)
+                    mask = torch.LongTensor(mask)
                     if args.cuda:
                         edge_idx = edge_idx.cuda()
                         edge_type = edge_type.cuda()
                         batch = batch.cuda()
+                        mask = mask.cuda()
                     batch_scores = model.forward(
                         formula=formula,
                         prefs=current_prefs,
                         edge_index=edge_idx,
                         edge_type=edge_type,
                         batch=batch,
+                        mask=mask,
                         targets=higher_entity+lower_entities
                     ).data.tolist()
                     type_perc_scores.extend(_get_perc_scores(batch_scores, lengths))
@@ -143,7 +148,7 @@ def run_train():
     train_prefs = defaultdict(lambda : defaultdict(list))
     test_prefs = defaultdict(lambda : defaultdict(list))
 
-    for i in range(1, 4):
+    for i in range(1, 2):
         i_train_prefs = load_prefs_by_formula(args.data_dir + "preference/train_pref_{:d}.pkl".format(i))
         i_test_prefs = load_prefs_by_formula(args.data_dir + "preference/test_pref_{:d}.pkl".format(i))
         train_prefs.update(i_train_prefs)
@@ -207,7 +212,7 @@ def run_train():
         loss = None
 
         for pref_type in train_prefs:
-            if pref_type != "UIUP-1":
+            if "UIUP-1" not in pref_type:
                 continue
             # select formula and prefs
             p = train_prefs[pref_type]
@@ -223,17 +228,27 @@ def run_train():
             current_prefs = p[formula][start:end]
             edge_idx, edge_type = dense_to_sparse(torch.Tensor([formula.edge_index for _ in range(end-start)]))
             batch = []
+            mask = []
             for j in range(end-start):
                 batch += [j for _ in range(len(formula.edge_index))]
+                mask += [1] + [0 for _ in range(len(formula.edge_index) - 1)]
             batch = torch.LongTensor(batch)
+            mask = torch.LongTensor(mask)
             if args.cuda:
                 edge_idx = edge_idx.cuda()
                 edge_type = edge_type.cuda()
                 batch = batch.cuda()
-            if loss == None:
-                loss = prefRGCN.margin_loss(formula, current_prefs, edge_idx, edge_type, batch)
-            else:
-                loss += prefRGCN.margin_loss(formula, current_prefs, edge_idx, edge_type, batch)
+                mask = mask.cuda()
+            # if loss == None:
+            #     loss = prefRGCN.margin_loss(formula, current_prefs, edge_idx, edge_type, batch, mask)
+            # else:
+            #     loss += prefRGCN.margin_loss(formula, current_prefs, edge_idx, edge_type, batch, mask)
+
+            if "UIUP-1" in pref_type:
+                if loss == None:
+                    loss = prefRGCN.contrast_loss(formula, current_prefs, edge_idx, edge_type, batch, mask)
+                else:
+                    loss += prefRGCN.contrast_loss(formula, current_prefs, edge_idx, edge_type, batch, mask)
 
         losses.append(loss.item())
         if ema_loss is None:
